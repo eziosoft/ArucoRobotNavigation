@@ -26,11 +26,12 @@ DARK_BLUE = (0, 0, 100)
 GREEN = (0, 255, 0)
 DARK_GREEN = (0, 100, 0)
 RED = (255, 0, 0)
+DARK_RED = (100, 0, 0)
 pygame.init()
 pygame.font.init()
 myfont = pygame.font.SysFont('Arial', 15)
 
-simulation = False
+simulation = True
 
 window_name = "Robot navigation"
 frameWidth = 720
@@ -57,9 +58,9 @@ testRobotHeading = 0
 barriers = False
 # aruco markers used as barrier corners
 m10 = (50, 50)
-m11 = (frameWidth, 0)
-m12 = (frameWidth, frameHeight)
-m13 = (0, frameHeight)
+m11 = (frameWidth - 10, 10)
+m12 = (frameWidth - 10, frameHeight - 10)
+m13 = (10, frameHeight - 10)
 
 auto_control = False
 navigationEnabled = False
@@ -81,6 +82,10 @@ mouse_position = (0, 0)
 mqtt_server_address = "localhost"
 # mqtt_server = "test.mosquitto.org"
 
+barrier_lines = [((m10[0], m10[1], 0), (m11[0], m11[1], 0)),
+                 ((m11[0], m11[1], 0), (m12[0], m12[1], 0)),
+                 ((m12[0], m12[1], 0), (m13[0], m13[1], 0)),
+                 ((m13[0], m13[1], 0), (m10[0], m10[1], 0))]
 
 if not simulation:
     try:
@@ -218,6 +223,10 @@ while not done:
         pygame.draw.line(screen, GREEN, ([corners[3]['x'], corners[3]['y']]), ([corners[0]['x'], corners[0]['y']]), 2)
         pygame.draw.line(screen, GREEN, (x, y), (int(x + s / 2 * math.sin(h)), int(y + s / 2 * math.cos(h))), 2)
 
+        if marker_id != robot_aruco_id: # not display marker ID for robot
+            textsurface = myfont.render(str(marker_id), False, WHITE)
+            screen.blit(textsurface, (x, y))
+
         if marker_id == robot_aruco_id:
             robotDetected = True
             robot_center_position = (x, y)
@@ -225,20 +234,21 @@ while not done:
             pygame.draw.circle(screen, RED, robot_center_position, int(s / 7), 1)
 
             # virtual sensors
-            x1 = robot_center_position[0] + s * math.sin(robot_heading + math.radians(30))
-            y1 = robot_center_position[1] + s * math.cos(robot_heading + math.radians(30))
-            s1 = (int(x1), int(y1))
-            pygame.draw.line(screen, DARK_BLUE, robot_center_position, s1, 2)
+            sensor_angle = [-30, 30, 150, -150]
+            for r in sensor_angle:
+                x1 = robot_center_position[0] + s * math.sin(robot_heading + math.radians(r))
+                y1 = robot_center_position[1] + s * math.cos(robot_heading + math.radians(r))
+                s1 = (int(x1), int(y1))
+                pygame.draw.line(screen, DARK_BLUE, robot_center_position, s1, 1)
 
-            x1 = robot_center_position[0] + s * math.sin(robot_heading - math.radians(30))
-            y1 = robot_center_position[1] + s * math.cos(robot_heading - math.radians(30))
-            s2 = (int(x1), int(y1))
-            pygame.draw.line(screen, DARK_BLUE, robot_center_position, s2, 2)
-
-            ss1 = line_intersection((robot_center_position, s1), (m10, m11))
-            ss2 = line_intersection((robot_center_position, s2), (m10, m11))
-            pygame.draw.circle(screen, RED, ss1, 3, 2)
-            pygame.draw.circle(screen, RED, ss2, 3, 2)
+                for l in barrier_lines:
+                    l1 = l[0]
+                    l2 = l[1]
+                    try:
+                        ss1 = line_intersection((robot_center_position, s1), (l1, l2))
+                        pygame.draw.circle(screen, DARK_BLUE, ss1, 3, 2)
+                    except:
+                        pass
 
             str_position = "Robot Position x=%4.0f  y=%4.0f  h=%4.0f" % (robot_center_position[0], robot_center_position[1], math.degrees(robot_heading))
             textsurface = myfont.render(str_position, False, WHITE)
@@ -266,9 +276,6 @@ while not done:
         if marker_id == 13:
             m13 = (x, y)
             pygame.draw.circle(screen, WHITE, m13, s / 7, 1)
-
-        textsurface = myfont.render(str(marker_id), False, WHITE)
-        screen.blit(textsurface, (x, y))
 
     # except Exception as e:
     #     print(e)
@@ -328,15 +335,15 @@ while not done:
         pygame.draw.line(screen, DARK_GREEN, robot_center_position, (int(robot_center_position[0] + 50 * math.sin(robot_heading_to_target)), int(robot_center_position[1] + 50 * math.cos(robot_heading_to_target))), 1)
 
     if barriers:
-        lines = [((m10[0], m10[1], 0), (m11[0], m11[1], 0)),
-                 ((m11[0], m11[1], 0), (m12[0], m12[1], 0)),
-                 ((m12[0], m12[1], 0), (m13[0], m13[1], 0)),
-                 ((m13[0], m13[1], 0), (m10[0], m10[1], 0))]
+        barrier_lines = [((m10[0], m10[1], 0), (m11[0], m11[1], 0)),
+                         ((m11[0], m11[1], 0), (m12[0], m12[1], 0)),
+                         ((m12[0], m12[1], 0), (m13[0], m13[1], 0)),
+                         ((m13[0], m13[1], 0), (m10[0], m10[1], 0))]
 
-        for l in lines:
+        for l in barrier_lines:
             l1 = l[0]
             l2 = l[1]
-            pygame.draw.line(screen, RED, (l1[0], l1[1]), (l2[0], l2[1]), 2)
+            pygame.draw.line(screen, DARK_RED, (l1[0], l1[1]), (l2[0], l2[1]), 2)
             distanceToLine, nearest = pnt2line((robot_center_position[0], robot_center_position[1], 0), l1, l2)
             pygame.draw.circle(screen, RED, (int(nearest[0]), int(nearest[1])), 5, 1)
 
