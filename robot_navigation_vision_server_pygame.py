@@ -233,22 +233,23 @@ while not done:
             robot_heading = h
             pygame.draw.circle(screen, RED, robot_center_position, int(s / 7), 1)
 
-            # virtual sensors
-            sensor_angle = [-30, 30, 150, -150]
-            for r in sensor_angle:
-                x1 = robot_center_position[0] + s * math.sin(robot_heading + math.radians(r))
-                y1 = robot_center_position[1] + s * math.cos(robot_heading + math.radians(r))
-                s1 = (int(x1), int(y1))
-                pygame.draw.line(screen, DARK_BLUE, robot_center_position, s1, 1)
+            if barriers:
+                # virtual sensors
+                sensor_angle = [-30, 30, 150, -150]
+                for r in sensor_angle:
+                    x1 = robot_center_position[0] + s * math.sin(robot_heading + math.radians(r))
+                    y1 = robot_center_position[1] + s * math.cos(robot_heading + math.radians(r))
+                    s1 = (int(x1), int(y1))
+                    pygame.draw.line(screen, DARK_BLUE, robot_center_position, s1, 1)
 
-                for l in barrier_lines:
-                    l1 = l[0]
-                    l2 = l[1]
-                    try:
-                        ss1 = line_intersection((robot_center_position, s1), (l1, l2))
-                        pygame.draw.circle(screen, DARK_BLUE, ss1, 3, 2)
-                    except:
-                        pass
+                    for l in barrier_lines:
+                        l1 = l[0]
+                        l2 = l[1]
+                        try:
+                            ss1 = line_intersection((robot_center_position, s1), (l1, l2))
+                            pygame.draw.circle(screen, DARK_BLUE, ss1, 3, 2)
+                        except:
+                            pass
 
             str_position = "Robot Position x=%4.0f  y=%4.0f  h=%4.0f" % (robot_center_position[0], robot_center_position[1], math.degrees(robot_heading))
             textsurface = myfont.render(str_position, False, WHITE)
@@ -372,6 +373,8 @@ while not done:
     textsurface = myfont.render(str_position, False, WHITE)
     screen.blit(textsurface, (0, 40))
 
+    # aaa= pygame.transform.scale(screen, (1280,720))
+    # screen.blit(aaa, (0, 0))
     pygame.display.flip()
 
     for event in pygame.event.get():
@@ -385,19 +388,26 @@ while not done:
             else:
                 current_target_position = mouse_position
 
-    pygame.key.set_repeat(1, 1000)  # does not work ?
+    # pygame.key.set_repeat(1, 1000)  # does not work ?
     keys = pygame.key.get_pressed()
     if keys[pygame.K_a]:
         auto_control = not auto_control
+        time.sleep(0.5)
     if keys[pygame.K_b]:
         barriers = not barriers
+        time.sleep(0.5)
+
     if keys[pygame.K_n]:
         navigationEnabled = not navigationEnabled
         if navigationEnabled and len(wps) > 0:
             currentWP = 0
             current_target_position = wps[currentWP]
+        time.sleep(0.5)
+
     if keys[pygame.K_w]:
         addWP = True
+        time.sleep(0.5)
+
 
 pygame.quit()
 
