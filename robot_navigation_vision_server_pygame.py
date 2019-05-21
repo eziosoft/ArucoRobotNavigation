@@ -14,19 +14,20 @@ import time
 import random
 
 from distance_from_line import pnt2line, line_intersection
-from helpers import distance
+from helpers import distance, order_points
 
 aruco_vision_server = ("192.168.2.99", 5000)
 vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 BLACK = (0, 0, 0)
+YELLOW = (255, 196, 5)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
-DARK_BLUE = (0, 0, 100)
+DARK_BLUE = (0, 50, 150)
 GREEN = (0, 255, 0)
 DARK_GREEN = (0, 100, 0)
 RED = (255, 0, 0)
-DARK_RED = (100, 0, 0)
+ORANGE = (100, 50, 0)
 pygame.init()
 pygame.font.init()
 myfont = pygame.font.SysFont('Arial', 15)
@@ -51,16 +52,10 @@ robot_center_position = [0, 0]
 robot_heading = 0
 robot_heading_to_target = 0
 robot_distance_to_target = 0
+max_forward_heading = 45 # if the heading to target is grater than this value robot will rotate in place
 
 testRobotCenterPosition = [300, 300]
 testRobotHeading = 0
-
-barriers = False
-# aruco markers used as barrier corners
-m10 = (50, 50)
-m11 = (frameWidth - 10, 10)
-m12 = (frameWidth - 10, frameHeight - 10)
-m13 = (10, frameHeight - 10)
 
 auto_control = False
 navigationEnabled = False
@@ -71,6 +66,23 @@ target_aruco_id = 1
 targetHeading = 0  # not used
 wp_radius = 20
 wps = []
+
+barriers = False
+
+def generate_simulation_wps():
+    global wps
+    wps = []
+    max_points = 15
+    for i in range(0, max_points):
+        wps.append((int(i * frameWidth / max_points), random.randint(10, frameHeight - 10)))
+
+
+if simulation:
+    auto_control = True
+    navigationEnabled = True
+    # barriers = True
+    generate_simulation_wps()
+
 addWP = False
 currentWP = 0
 
@@ -82,10 +94,26 @@ mouse_position = (0, 0)
 mqtt_server_address = "localhost"
 # mqtt_server = "test.mosquitto.org"
 
-barrier_lines = [((m10[0], m10[1], 0), (m11[0], m11[1], 0)),
-                 ((m11[0], m11[1], 0), (m12[0], m12[1], 0)),
-                 ((m12[0], m12[1], 0), (m13[0], m13[1], 0)),
-                 ((m13[0], m13[1], 0), (m10[0], m10[1], 0))]
+
+# aruco markers used as barrier corners
+m10 = (50, 50)
+m11 = (frameWidth - 10, 10)
+m12 = (frameWidth - 10, frameHeight - 10)
+m13 = (10, frameHeight - 10)
+
+
+def prepare_barrier_lines():
+    # barriers
+    global barrier_lines
+    barrier_points = np.array([(m10[0], m10[1]), (m12[0], m12[1]), (m11[0], m11[1]), (m13[0], m13[1])])
+    barrier_points = order_points(barrier_points)  # make sure that points are in good order to make a rectangle
+    barrier_lines = []
+    for j in range(0, len(barrier_points) - 1, 1):
+        barrier_lines.append((barrier_points[j], barrier_points[j + 1]))
+    barrier_lines.append((barrier_points[len(barrier_lines)], barrier_points[0]))  # add last line
+
+
+prepare_barrier_lines()
 
 if not simulation:
     try:
@@ -127,10 +155,9 @@ def mqtt_control_robot(ch1, ch2, ch3, ch4):
 
     if auto_control:
         if simulation:
-            simSpeed = 5
-            testRobotHeading += 10 * (ch1 - 100) / (100 * simSpeed)
-            testRobotCenterPosition[0] = testRobotCenterPosition[0] + int((ch2 - 100) / 10 * simSpeed * math.sin(robot_heading))
-            testRobotCenterPosition[1] = testRobotCenterPosition[1] + int((ch2 - 100) / 10 * simSpeed * math.cos(robot_heading))
+            testRobotHeading += (ch1 - 100) / 400
+            testRobotCenterPosition[0] = testRobotCenterPosition[0] + ((ch2 - 100) / 10 * math.sin(robot_heading))
+            testRobotCenterPosition[1] = testRobotCenterPosition[1] + ((ch2 - 100) / 10 * math.cos(robot_heading))
             if testRobotCenterPosition[0] < 0:
                 testRobotCenterPosition[0] = 0
             if testRobotCenterPosition[1] < 0:
@@ -154,19 +181,6 @@ def mqtt_control_robot(ch1, ch2, ch3, ch4):
             ch4 = 200
         control_frame = [0x24, 4, int(ch1), int(ch2), int(ch3), int(ch4)]
         mqtt_client.publish('tank/in', bytearray(control_frame))
-
-
-# def on_mouse_click(event, x, y, flags, param):
-#     global mouse_position
-#     global addWP
-#     global current_target_position
-#     mouse_position = (x, y)
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         if addWP:
-#             wps.append(mouse_position)
-#             addWP = False
-#         else:
-#             current_target_position = mouse_position
 
 
 done = False
@@ -201,7 +215,7 @@ while not done:
             mqtt_control_robot(100, 100, 100, 100)  # robot stop
             continue
     else:
-        clock.tick(5)
+        clock.tick(60)
         # simulates json file received from vision server
         s = ('{"aruco":[{"ID":333,"center":{"x":%d,"y":%d},"heading":%f,"markerCorners":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}],"size":50}]}' % (testRobotCenterPosition[0], testRobotCenterPosition[1], testRobotHeading)).encode()
     # print(s.decode())
@@ -223,7 +237,7 @@ while not done:
         pygame.draw.line(screen, GREEN, ([corners[3]['x'], corners[3]['y']]), ([corners[0]['x'], corners[0]['y']]), 2)
         pygame.draw.line(screen, GREEN, (x, y), (int(x + s / 2 * math.sin(h)), int(y + s / 2 * math.cos(h))), 2)
 
-        if marker_id != robot_aruco_id: # not display marker ID for robot
+        if marker_id != robot_aruco_id:  # not display marker ID for robot
             textsurface = myfont.render(str(marker_id), False, WHITE)
             screen.blit(textsurface, (x, y))
 
@@ -251,7 +265,7 @@ while not done:
                         except:
                             pass
 
-            str_position = "Robot Position x=%4.0f  y=%4.0f  h=%4.0f" % (robot_center_position[0], robot_center_position[1], math.degrees(robot_heading))
+            str_position = "Robot x=%4.0f y=%4.0f h=%4.0f" % (robot_center_position[0], robot_center_position[1], math.degrees(robot_heading))
             textsurface = myfont.render(str_position, False, WHITE)
             screen.blit(textsurface, (0, 20))
             mqtt_client.publish("tank/position", "x=%4.0f;y=%4.0f;h=%4.0f" % (robot_center_position[0], robot_center_position[1], robot_heading))
@@ -262,26 +276,29 @@ while not done:
             targetHeading = h
             pygame.draw.circle(screen, WHITE, current_target_position, s / 7, 1)
 
+        markers_barrier_found = 0
         if marker_id == 10:
             m10 = (x, y)
             pygame.draw.circle(screen, WHITE, m10, s / 7, 1)
+            markers_barrier_found += 1
 
         if marker_id == 11:
             m11 = (x, y)
             pygame.draw.circle(screen, WHITE, m11, s / 7, 1)
+            markers_barrier_found += 1
 
         if marker_id == 12:
             m12 = (x, y)
             pygame.draw.circle(screen, WHITE, m12, s / 7, 1)
+            markers_barrier_found += 1
 
         if marker_id == 13:
             m13 = (x, y)
             pygame.draw.circle(screen, WHITE, m13, s / 7, 1)
+            markers_barrier_found += 1
 
-    # except Exception as e:
-    #     print(e)
-    #     # get new aruco positions
-    #     continue
+        if markers_barrier_found == 4:
+            prepare_barrier_lines()
 
     # robot control and navigation
     if robotDetected and targetDetected and navigationEnabled:
@@ -309,7 +326,7 @@ while not done:
         pidFB.sample_time = 0.01  # update every 0.01 seconds
         pidFB.setpoint = 0
 
-        if math.fabs(robot_heading_to_target - robot_heading) < math.radians(15):  # don't drive forward until error in heading is less than 15degrees
+        if math.fabs(robot_heading_to_target - robot_heading) < math.radians(max_forward_heading):  # don't drive forward until error in heading is less than 15degrees
             ch2 = -pidFB(robot_distance_to_target) * 100 + 100
         else:
             ch2 = 100
@@ -321,9 +338,9 @@ while not done:
                 current_target_position = wps[currentWP]
                 currentWP += 1
             else:
+                if simulation:
+                    generate_simulation_wps()
                 currentWP = 0
-            # if simulation:
-            #     current_target_position = (random.randint(0, frameWidth), random.randint(0, frameHeight))
 
         if not robotDetected:
             ch1 = 100  # stop robot
@@ -331,20 +348,15 @@ while not done:
 
         str_position = "Nav h=%4.0f  d=%4.0f" % (math.degrees(robot_heading_to_target), robot_distance_to_target)
         textsurface = myfont.render(str_position, False, WHITE)
-        screen.blit(textsurface, (0, 80))
+        screen.blit(textsurface, (0, 60))
         # # draw heading line
         pygame.draw.line(screen, DARK_GREEN, robot_center_position, (int(robot_center_position[0] + 50 * math.sin(robot_heading_to_target)), int(robot_center_position[1] + 50 * math.cos(robot_heading_to_target))), 1)
 
     if barriers:
-        barrier_lines = [((m10[0], m10[1], 0), (m11[0], m11[1], 0)),
-                         ((m11[0], m11[1], 0), (m12[0], m12[1], 0)),
-                         ((m12[0], m12[1], 0), (m13[0], m13[1], 0)),
-                         ((m13[0], m13[1], 0), (m10[0], m10[1], 0))]
-
         for l in barrier_lines:
-            l1 = l[0]
-            l2 = l[1]
-            pygame.draw.line(screen, DARK_RED, (l1[0], l1[1]), (l2[0], l2[1]), 2)
+            l1 = (l[0][0], l[0][1], 0)
+            l2 = (l[1][0], l[1][1], 0)
+            pygame.draw.line(screen, ORANGE, (l1[0], l1[1]), (l2[0], l2[1]), 2)
             distanceToLine, nearest = pnt2line((robot_center_position[0], robot_center_position[1], 0), l1, l2)
             pygame.draw.circle(screen, RED, (int(nearest[0]), int(nearest[1])), 5, 1)
 
@@ -365,16 +377,14 @@ while not done:
     screen.blit(textsurface, mouse_position)
 
     textsurface = myfont.render("auto %d, nav %d, barriers %d" % (auto_control, navigationEnabled, barriers), False, WHITE)
-    screen.blit(textsurface, (0, 100))
+    screen.blit(textsurface, (0, 80))
 
-    pygame.draw.circle(screen, RED, current_target_position, wp_radius, 1)
+    pygame.draw.circle(screen, YELLOW, current_target_position, wp_radius, 1)
 
-    str_position = "Target Position x=%4.0f  y=%4.0f  h=%4.0f" % (current_target_position[0], current_target_position[1], math.degrees(targetHeading))
+    str_position = "Target x=%4.0f y=%4.0f h=%4.0f" % (current_target_position[0], current_target_position[1], math.degrees(targetHeading))
     textsurface = myfont.render(str_position, False, WHITE)
     screen.blit(textsurface, (0, 40))
 
-    # aaa= pygame.transform.scale(screen, (1280,720))
-    # screen.blit(aaa, (0, 0))
     pygame.display.flip()
 
     for event in pygame.event.get():
@@ -407,7 +417,6 @@ while not done:
     if keys[pygame.K_w]:
         addWP = True
         time.sleep(0.5)
-
 
 pygame.quit()
 
