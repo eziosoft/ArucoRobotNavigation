@@ -1,6 +1,24 @@
+#   This file is part of ArucoRobotNavigation.
+#
+#      ArucoRobotNavigation is free software: you can redistribute it and/or modify
+#      it under the terms of the GNU General Public License as published by
+#      the Free Software Foundation, either version 3 of the License, or
+#      (at your option) any later version.
+#
+#      Foobar is distributed in the hope that it will be useful,
+#      but WITHOUT ANY WARRANTY; without even the implied warranty of
+#      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#      GNU General Public License for more details.
+#
+#      You should have received a copy of the GNU General Public License
+#      along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+#  Copyright (c) 2019.
+
 # Simple Robot navigation based on aruco markers received from Android 'vision server'
 # Robot is controlled through MQTT server
 # Created 15/05/2019 by Bartosz Szczygiel
+
+
 
 import pygame
 import math
@@ -19,6 +37,8 @@ from helpers import distance, order_points
 aruco_vision_server = ("192.168.2.99", 5000)
 vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+simulation = False
+
 BLACK = (0, 0, 0)
 YELLOW = (255, 196, 5)
 WHITE = (255, 255, 255)
@@ -31,8 +51,6 @@ ORANGE = (100, 50, 0)
 pygame.init()
 pygame.font.init()
 myfont = pygame.font.SysFont('Arial', 15)
-
-simulation = True
 
 window_name = "Robot navigation"
 frameWidth = 720
@@ -52,7 +70,7 @@ robot_center_position = [0, 0]
 robot_heading = 0
 robot_heading_to_target = 0
 robot_distance_to_target = 0
-max_forward_heading = 45 # if the heading to target is grater than this value robot will rotate in place
+max_forward_heading = 45  # if the heading to target is grater than this value robot will rotate in place
 
 testRobotCenterPosition = [300, 300]
 testRobotHeading = 0
@@ -68,6 +86,7 @@ wp_radius = 20
 wps = []
 
 barriers = False
+
 
 def generate_simulation_wps():
     global wps
@@ -219,7 +238,12 @@ while not done:
         # simulates json file received from vision server
         s = ('{"aruco":[{"ID":333,"center":{"x":%d,"y":%d},"heading":%f,"markerCorners":[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}],"size":50}]}' % (testRobotCenterPosition[0], testRobotCenterPosition[1], testRobotHeading)).encode()
     # print(s.decode())
-    markersDict = json.loads(s.decode())
+
+    try:
+        markersDict = json.loads(s.decode())
+    except:
+        continue
+
     aruco_markers = markersDict["aruco"]
 
     for m in aruco_markers:
@@ -279,22 +303,22 @@ while not done:
         markers_barrier_found = 0
         if marker_id == 10:
             m10 = (x, y)
-            pygame.draw.circle(screen, WHITE, m10, s / 7, 1)
+            pygame.draw.circle(screen, WHITE, m10, int(s / 7), 1)
             markers_barrier_found += 1
 
         if marker_id == 11:
             m11 = (x, y)
-            pygame.draw.circle(screen, WHITE, m11, s / 7, 1)
+            pygame.draw.circle(screen, WHITE, m11, int(s / 7), 1)
             markers_barrier_found += 1
 
         if marker_id == 12:
             m12 = (x, y)
-            pygame.draw.circle(screen, WHITE, m12, s / 7, 1)
+            pygame.draw.circle(screen, WHITE, m12, int(s / 7), 1)
             markers_barrier_found += 1
 
         if marker_id == 13:
             m13 = (x, y)
-            pygame.draw.circle(screen, WHITE, m13, s / 7, 1)
+            pygame.draw.circle(screen, WHITE, m13, int(s / 7), 1)
             markers_barrier_found += 1
 
         if markers_barrier_found == 4:
