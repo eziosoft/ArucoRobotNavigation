@@ -19,17 +19,16 @@
 # Created 15/05/2019 by Bartosz Szczygiel
 
 
-
-import pygame
-import math
-import numpy as np
-from math import pi
-import paho.mqtt.client as mqtt
-from simple_pid import PID
 import json
+import random
 import socket
 import time
-import random
+
+import math
+import numpy as np
+import paho.mqtt.client as mqtt
+import pygame
+from simple_pid import PID
 
 from distance_from_line import pnt2line, line_intersection
 from helpers import distance, order_points
@@ -37,7 +36,7 @@ from helpers import distance, order_points
 aruco_vision_server = ("192.168.2.99", 5000)
 vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-simulation = False
+simulation = True
 
 BLACK = (0, 0, 0)
 YELLOW = (255, 196, 5)
