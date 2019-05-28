@@ -36,7 +36,7 @@ from helpers import distance, order_points
 aruco_vision_server = ("192.168.2.99", 5000)
 vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-simulation = True
+simulation = True # if true than everything is emulated
 
 BLACK = (0, 0, 0)
 YELLOW = (255, 196, 5)
