@@ -33,10 +33,12 @@ from simple_pid import PID
 from distance_from_line import pnt2line, line_intersection
 from helpers import distance, order_points
 
+from marker_attitude import getMarkerAttitude
+
 aruco_vision_server = ("192.168.2.99", 5000)
 vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-simulation = True # if true than everything is emulated
+simulation = True  # if true than everything is emulated
 
 BLACK = (0, 0, 0)
 YELLOW = (255, 196, 5)
@@ -252,6 +254,8 @@ while not done:
         h = (m['heading'])
         marker_id = int(m['ID'])
         corners = m['markerCorners']
+
+        xm, ym, zm, roll_marker, pitch_marker, yaw_marker = getMarkerAttitude(corners, 10)  # for extra info, openCV needed
 
         # draw marker
         pygame.draw.line(screen, GREEN, ([corners[0]['x'], corners[0]['y']]), ([corners[1]['x'], corners[1]['y']]), 2)
