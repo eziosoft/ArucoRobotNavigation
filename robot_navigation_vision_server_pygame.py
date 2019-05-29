@@ -255,7 +255,11 @@ while not done:
         marker_id = int(m['ID'])
         corners = m['markerCorners']
 
-        xm, ym, zm, roll_marker, pitch_marker, yaw_marker = getMarkerAttitude(corners, 10)  # for extra info, openCV needed
+        try:
+            xm, ym, zm, roll_marker, pitch_marker, yaw_marker = getMarkerAttitude(corners, 10)  # for extra info, openCV needed
+        except:
+            pass
+
 
         # draw marker
         pygame.draw.line(screen, GREEN, ([corners[0]['x'], corners[0]['y']]), ([corners[1]['x'], corners[1]['y']]), 2)

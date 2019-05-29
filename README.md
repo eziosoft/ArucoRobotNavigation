@@ -10,4 +10,7 @@ w - add waypoint
 b - enable borders  
 
 ![](screenshots/nav1.png)  
-![](screenshots/nav2.png)
+![](screenshots/nav2.png)  
+  
+  Simulation  
+![](screenshots/nav3.gif)
