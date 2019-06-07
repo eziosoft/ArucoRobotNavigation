@@ -28,7 +28,7 @@
 #
 # Simple Robot navigation based on aruco markers received from Android 'vision server'
 # Robot is controlled through MQTT server
-# Created 15/05/2019 by Bartosz Szczygiel
+# Created 07/06/2019 by Bartosz Szczygiel
 
 
 import json
