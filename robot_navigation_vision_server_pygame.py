@@ -35,10 +35,9 @@ from helpers import distance, order_points
 
 from marker_attitude import getMarkerAttitude
 
-aruco_vision_server = ("192.168.2.99", 5000)
-vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+aruco_vision_server = ("192.168.0.23", 5000)
 
-simulation = True  # if true than everything is emulated
+simulation = False  # if true than everything is emulated
 
 BLACK = (0, 0, 0)
 YELLOW = (255, 196, 5)
@@ -106,12 +105,12 @@ if simulation:
 addWP = False
 currentWP = 0
 
-pidLR = PID(1, 0, 0, 0)  # PID left right
-pidFB = PID(1, 0, 0, 0)  # PID Forward Backward
+pid_left_right = PID(1, 0, 0, 0)  # PID left right
+pid_speed = PID(1, 0, 0, 0)  # PID Forward Backward
 
 mouse_position = (0, 0)
 
-mqtt_server_address = "localhost"
+mqtt_server_address = "192.168.0.19" # my MQTT server
 # mqtt_server = "test.mosquitto.org"
 
 
@@ -138,6 +137,7 @@ prepare_barrier_lines()
 if not simulation:
     try:
         print("connecting to vision server " + str(aruco_vision_server))
+        vision_server_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         vision_server_client.connect(aruco_vision_server)
         vision_server_client.setblocking(0)
         vision_server_client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -147,7 +147,7 @@ if not simulation:
         exit()
 
 
-# MQTT
+# Connect to MQTT server
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))  # client.subscribe("tank/in")
 
@@ -260,7 +260,6 @@ while not done:
         except:
             pass
 
-
         # draw marker
         pygame.draw.line(screen, GREEN, ([corners[0]['x'], corners[0]['y']]), ([corners[1]['x'], corners[1]['y']]), 2)
         pygame.draw.line(screen, GREEN, ([corners[1]['x'], corners[1]['y']]), ([corners[2]['x'], corners[2]['y']]), 2)
@@ -334,31 +333,32 @@ while not done:
     # robot control and navigation
     if robotDetected and targetDetected and navigationEnabled:
         robot_heading_to_target = math.atan2((current_target_position[0] - robot_center_position[0]), (current_target_position[1] - robot_center_position[1]))  # in radians
-        if (robot_heading_to_target - robot_heading) < math.radians(-180):
-            robot_heading_to_target += math.radians(360)
+
+        if (robot_heading_to_target - robot_heading) < math.radians(-180):  # something might be wrong here
+            robot_heading_to_target += math.radians(360)  # something might be wrong here
         else:
-            if (robot_heading_to_target - robot_heading) > math.radians(180):
-                robot_heading_to_target -= math.radians(360)
+            if (robot_heading_to_target - robot_heading) > math.radians(180):  # something might be wrong here
+                robot_heading_to_target -= math.radians(360)  # something might be wrong here
 
         robot_distance_to_target = distance(robot_center_position, current_target_position)
 
-        pidLR.tunings = (0.3, 0.001, 0.01)  # depends on the robot configuration
+        pid_left_right.tunings = (0.3, 0.001, 0.01)  # tuning depends on the robot configuration, vision delay, etc
         if math.fabs(robot_heading_to_target - robot_heading) > math.radians(5):  # I-term anti windup
-            pidLR.Ki = 0
-        pidLR.output_limits = (-0.3, 0.3)  # depends on the robot configuration
-        pidLR.sample_time = 0.01  # update every 0.01 seconds
-        pidLR.setpoint = robot_heading_to_target
-        ch1 = pidLR(robot_heading) * 100 + 100  # steering
+            pid_left_right.Ki = 0
+        pid_left_right.output_limits = (-0.3, 0.3)  # tuning depends on the robot configuration, vision delay, etc
+        pid_left_right.sample_time = 0.01  # update every 0.01 seconds
+        pid_left_right.setpoint = robot_heading_to_target
+        ch1 = pid_left_right(robot_heading) * 100 + 100  # steering
 
-        pidFB.tunings = (0.01, 0.0001, 0)  # depends on the robot configuration
+        pid_speed.tunings = (0.01, 0.0001, 0)  # depends on the robot configuration
         if robot_distance_to_target > 5:  # I-term anti windup
-            pidFB.Ki = 0
-        pidFB.output_limits = (-0.3, 0.3)  # depends on the robot configuration
-        pidFB.sample_time = 0.01  # update every 0.01 seconds
-        pidFB.setpoint = 0
+            pid_speed.Ki = 0
+        pid_speed.output_limits = (-0.3, 0.3)  # depends on the robot configuration
+        pid_speed.sample_time = 0.01  # update every 0.01 seconds
+        pid_speed.setpoint = 0
 
-        if math.fabs(robot_heading_to_target - robot_heading) < math.radians(max_forward_heading):  # don't drive forward until error in heading is less than 15degrees
-            ch2 = -pidFB(robot_distance_to_target) * 100 + 100
+        if math.fabs(robot_heading_to_target - robot_heading) < math.radians(max_forward_heading):  # don't drive forward until error in heading is less than max_forward_heading
+            ch2 = -pid_speed(robot_distance_to_target) * 100 + 100
         else:
             ch2 = 100
 
@@ -450,21 +450,3 @@ while not done:
         time.sleep(0.5)
 
 pygame.quit()
-
-#
-# if key == ord('a'):
-#     auto_control = not auto_control
-#
-# if key == ord('b'):
-#     barriers = not barriers
-#
-# if key == ord('n'):
-#     navigationEnabled = not navigationEnabled
-#     if navigationEnabled and len(wps) > 0:
-#         currentWP = 0
-#         current_target_position = wps[currentWP]
-#     # if not navigationEnabled:
-#     #     ch1 = 100
-#     #     ch2 = 100
-# if key == ord('w'):
-#     addWP = True

@@ -14,3 +14,6 @@ b - enable borders
   
   Simulation  
 ![](screenshots/nav3.gif)
+
+  Controlling real robot (https://github.com/eziosoft/MQTT_robot_Arduino)  
+![](screenshots/robot.gif)
